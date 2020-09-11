@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  creationTimestamp: "2020-09-08T03:59:41Z"
+  generation: 1
+  managedFields:
+  - apiVersion: networking.k8s.io/v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:policyTypes: {}
+    manager: kubectl
+    operation: Update
+    time: "2020-09-08T03:59:41Z"
+  name: allow-traffic
+  namespace: default
+  resourceVersion: "1469"
+  selfLink: /apis/networking.k8s.io/v1/namespaces/default/networkpolicies/default-deny
+  uid: 5cad2b6c-a831-411a-ad2c-714f246ea873
+spec:
+  podSelector:
+    matchLabels:
+      run: secure-pod
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: webapp-color
+    ports:
+    - protocol: TCP
+      port: 80

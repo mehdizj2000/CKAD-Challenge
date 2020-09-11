@@ -1,0 +1,191 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: drupal-pv
+  labels: 
+    pv: drupal-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /drupal-data
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: drupal-mysql-pv
+  labels: 
+    pv: drupal-mysql-pv
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /drupal-mysql-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: drupal-mysql-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      pv: drupal-mysql-pv
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: drupal-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      pv: drupal-pv
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: drupal-mysql-secret
+type: Opaque
+data:
+  MYSQL_ROOT_PASSWORD: cm9vdF9wYXNzd29yZA==
+  MYSQL_DATABASE: ZHJ1cGFsLWRhdGFiYXNl
+  MYSQL_USER: cm9vdA==
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drupal-mysql
+  labels:
+    app: drupal-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drupal-backend
+  template:
+    metadata:
+      labels:
+        app: drupal-backend
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        args: 
+        - "--ignore-db-dir=lost+found"
+        volumeMounts: 
+        - mountPath: "/var/lib/mysql"
+          name: drupal-mysql-pvc
+          subPath: dbdata
+        env:
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:  
+              name: drupal-mysql-secret
+              key: MYSQL_DATABASE
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:  
+              name: drupal-mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:  
+              name: drupal-mysql-secret
+              key: MYSQL_USER
+      volumes:
+      - name: drupal-mysql-pvc
+        persistentVolumeClaim:
+            claimName: drupal-mysql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drupal-mysql-service
+spec:
+  selector:
+    app: drupal-backend
+  ports:
+    - protocol: TCP
+      port: 3306
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: drupal
+  labels:
+    app: drupal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: drupal
+  template:
+    metadata:
+      labels:
+        app: drupal
+    spec:
+      initContainers:
+      - name: init-sites-volume
+        image: drupal:8.6
+        command: [ "/bin/bash", "-c" ]
+        args: ["cp -r /var/www/html/sites/ /data/; chown www-data:www-data /data/ -R"]
+        volumeMounts: 
+        - mountPath: "/data"
+          name: drupal-pvc
+      containers:
+      - name: drupal
+        image: drupal:8.6
+        args: 
+        - "--ignore-db-dir=lost+found"
+        volumeMounts: 
+        - mountPath: "/var/www/html/modules"
+          name: drupal-pvc
+          subPath: modules
+        - mountPath: "/var/www/html/profiles"
+          name: drupal-pvc
+          subPath: profiles
+        - mountPath: "/var/www/html/sites"
+          name: drupal-pvc
+          subPath: sites
+        - mountPath: "/var/www/html/themes"
+          name: drupal-pvc
+          subPath: themes
+      volumes:
+      - name: drupal-pvc
+        persistentVolumeClaim:
+            claimName: drupal-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: drupal-service
+spec:
+  selector:
+    app: drupal
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      nodePort: 30095
+---
+
