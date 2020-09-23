@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: log-volume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 50M
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /tmp/k8s-challenge-3
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: log-claim
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 40M
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: dice
+spec:
+  schedule: "*/1 * * * *"
+  successfulJobsHistoryLimit: 4
+  jobTemplate:
+    spec:
+      parallelism: 2
+      template:
+        spec:
+          volumes:
+          - name: a-volume
+            persistentVolumeClaim:
+              claimName: log-claim
+          containers:
+          - image: bash
+            name: bash
+            args: 
+            - /bin/sh
+            - -c
+            - hostname >> /tmp/vol/storage
+            volumeMounts:
+            - name: a-volume
+              mountPath: /tmp/vol
+          restartPolicy: Never
+
