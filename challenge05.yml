@@ -1,0 +1,30 @@
+apiVersion: v1
+data:
+  password: MTIzNDU2Nzg=
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: secret1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod1
+spec:
+  containers:
+  - name: pod1
+    image: bash
+    command: 
+    - sleep
+    - "3600"
+    envFrom:
+    - configMapRef:
+        name: drink1
+    volumeMounts:
+    - name: sec-vol
+      mountPath: /tmp/secret1
+  volumes:
+  - name: sec-vol
+    secret:
+      secretName: secret1
+
