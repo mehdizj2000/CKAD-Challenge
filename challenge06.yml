@@ -1,0 +1,69 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-nginx-to-api
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector: 
+        matchLabels:
+          app: api
+    ports:
+    - protocol: TCP
+      port: 3333
+  - to:
+    ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-nginx-to-api
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx
+    ports:
+    - protocol: TCP
+      port: 3333
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-google-to-api
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 142.250.66.228/32
+    ports:
+    - port: 443
+      protocol: TCP
+  - to:
+    ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+---
+
