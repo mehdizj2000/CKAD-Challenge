@@ -1,0 +1,386 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 2
+  selector:
+    matchLabels:
+      app: revproxy
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: revproxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.7.1
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: node
+  name: node
+spec:
+  containers:
+  - image: node
+    name: node
+    command: ["node", "-v"]
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: nodeversion
+spec:
+  template:
+    spec:
+      containers:
+      - name: node
+        image: node
+        command: ["node", "-v"]
+      restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello-busy
+spec:
+  template:
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["echo", "Hello, I am from Job"]
+      restartPolicy: Never
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: date-cron
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      completions: 1
+      template:
+        spec:
+          containers:
+          - image: busybox
+            name: busy
+            command: [ "/bin/bash", "-c" ]
+            args: ["date; echo Hello from Kubernetes cluster"]
+          restartPolicy: Never
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: task-pv-volume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-pvc-volume
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: redis
+  name: redisppp
+spec:
+  containers:
+  - image: redis
+    name: redis
+    resources: {}
+    volumeMounts:
+    - name: red-vol
+      mountPath: /data/redis
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  volumes:
+  - name: red-vol
+    emptyDir: {}
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: nginx
+  name: nginx-pod
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: red-vol
+      mountPath: /usr/share/nginx/html
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  volumes:
+  - name: red-vol
+    persistentVolumeClaim:
+      claimName: task-pvc-volume
+status: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+data:
+  appname: myapp
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: nginx
+  name: nginx-pod
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: conf
+      mountPath: /etc/cfg
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+  volumes:
+  - name: conf
+    configMap:
+      name: myconfigmap
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: busy
+  name: secbusybox
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 2000
+  containers:
+  - image: busybox
+    name: busybox
+    securityContext:
+      runAsUser: 2000
+    command: [ "sleep", "3600" ]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    envFrom:
+    - secretRef:
+        name: mysecret
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: .5
+      limits:
+        memory: 200Mi
+        cpu: 1
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    env:
+    - name: username
+      valueFrom:
+        secretKeyRef:
+          name: mysecret
+          key: username
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: .5
+      limits:
+        memory: 200Mi
+        cpu: 1
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: busybox
+  name: busybox
+spec:
+  serviceAccount: admin
+  containers:
+  - image: busybox
+    name: busybox
+    command: ["sleep", "3600"]
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: .5
+      limits:
+        memory: 200Mi
+        cpu: 1
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    ports: 
+    - containerPort: 80
+    readinessProbe:
+      initialDelaySeconds: 20
+      httpGet:
+        path: /
+        port: 80
+    livenessProbe:
+      initialDelaySeconds: 20
+      periodSeconds: 25
+      httpGet:
+        path: /healtz
+        port: 80
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: busybox
+  name: busybox
+spec:
+  containers:
+  - image: busybox
+    name: busybox
+    args: ["/bin/sh", "-c", "echo I am from busybox pod; sleep 3600;"]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: alpine
+  name: alpine
+spec:
+  containers:
+  - image: alpine
+    name: alpine
+    args: ["/bin/sh", "-c", "while true; do echo 'I am from alpine'; sleep 5; done;"]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: my-nginx
+  ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-access
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          access: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+
+
+
+
+
