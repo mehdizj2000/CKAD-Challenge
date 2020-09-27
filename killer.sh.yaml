@@ -1,0 +1,295 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod1
+spec:
+  containers:
+  - name: pod1-container
+    image: httpd:2.4.41-alpine
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: neb-new-job
+  namespace: neptune
+spec:
+  completions: 3
+  parallelism: 2
+  template:
+    metadata:
+      labels:
+        id: awesome-job
+    spec:
+      containers:
+      - name: neb-new-job-container
+        image: busybox:1.31.0
+        args: ["/bin/sh", "-c" , "sleep 2 && echo done"]
+      restartPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neptune-10ab
+  namespace: neptune
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      serviceAccountName: neptune-sa-v2
+      containers:
+      - name: neptune-pod-10ab
+        image: httpd:2.4-alpine
+        resources:
+          requests:
+            memory: 20Mi
+          limits:
+            memory: 50Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nep-serv
+  namespace: neptune
+spec:
+  selector:
+    name: redis
+  ports:
+    - protocol: TCP
+      port: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod6
+spec:
+  containers:
+  - name: pod6-container
+    image: busybox:1.31.0
+    args:
+    - /bin/sh
+    - -c
+    - "touch /tmp/ready && sleep 1d"
+    readinessProbe:
+      exec: 
+        command:
+        - cat
+        - /tmp/ready
+      initialDelaySeconds: 5
+      periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: holy-api
+  namespace: pluto
+spec:
+  selector:
+    matchLabels:
+      id: holy-api
+  replicas: 3
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        id: holy-api
+      name: holy-api
+      namespace: pluto
+    spec:
+      volumes:
+      - name: cache-volume1
+        emptyDir: {}
+      - name: cache-volume2
+        emptyDir: {}
+      - name: cache-volume3
+        emptyDir: {}
+      containers:
+      - image: nginx:1.17.3-alpine
+        name: holy-api-container
+        volumeMounts:
+        - mountPath: /cache1
+          name: cache-volume1
+        - mountPath: /cache2
+          name: cache-volume2
+        - mountPath: /cache3
+          name: cache-volume3
+        env:
+        - name: CACHE_KEY_1
+          value: "b&MTCi0=[T66RXm!jO@"
+        - name: CACHE_KEY_2
+          value: "PCAILGej5Ld@Q%{Q1=#"
+        - name: CACHE_KEY_3
+          value: "2qz-]2OJlWDSTn_;RFQ"
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: project-plt-6cc-svc
+  namespace: pluto
+spec:
+  selector:
+    project: plt-6cc-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3333
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: project-plt-6cc-api
+  namespace: pluto
+  labels: 
+    project: plt-6cc-api
+spec:
+  containers:
+  - name: pod6-container
+    image: nginx:1.17.3-alpine
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: earth-project-earthflower-pv
+  namespace: earth
+spec:
+  capacity:
+    storage: 2Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /Volumes/Data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: earth-project-earthflower-pvc
+  namespace: earth
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-earthflower
+  namespace: earth
+spec:
+  selector:
+    matchLabels:
+      app: httpd
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: httpd
+    spec:
+      containers:
+      - name: httpd
+        image: httpd:2.4.41-alpine
+        volumeMounts:
+        - name: vol-q
+          mountPath: /tmp/project-data
+      volumes:
+      - name: vol-q
+        persistentVolumeClaim:
+          claimName: earth-project-earthflower-pvc 
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: moon-retain
+  namespace: moon
+provisioner: moon-retainer
+reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: moon-pvc-126
+  namespace: moon
+spec:
+  storageClassName: moon-retain
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 3Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-handler
+  namespace: moon
+  labels: 
+    project: plt-6cc-api
+spec:
+  containers:
+  - name: pod6-container
+    image: nginx:1.17.3-alpine
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    id: secret-handler
+    uuid: 1428721e-8d1c-4c09-b5d6-afd79200c56a
+    red_ident: 9cf7a7c0-fdb2-4c35-9c13-c2a0bb52b4a9
+    type: automatic
+  name: secret-handler
+  namespace: moon
+spec:
+  volumes:
+  - name: cache-volume1
+    emptyDir: {}
+  - name: cache-volume2
+    emptyDir: {}
+  - name: cache-volume3
+    emptyDir: {}
+  - name: secret2
+    secret:
+      secretName: secret2
+  containers:
+  - name: secret-handler
+    image: bash:5.0.11
+    args: ['bash', '-c', 'sleep 2d']
+    volumeMounts:
+    - mountPath: /cache1
+      name: cache-volume1
+    - mountPath: /cache2
+      name: cache-volume2
+    - mountPath: /cache3
+      name: cache-volume3
+    - name: secret2
+      mountPath: /tmp/secret2
+    env:
+    - name: SECRET_KEY_1
+      value: ">8$kH#kj..i8}HImQd{"
+    - name: SECRET_KEY_2
+      value: "IO=a4L/XkRdvN8jM=Y+"
+    - name: SECRET_KEY_3
+      value: "-7PA0_Z]>{pwa43r)__"
+    - name: SECRET1_USER
+      valueFrom: 
+        secretKeyRef:
+          name: secret1
+          key: user
+    - name: SECRET1_PASS
+      valueFrom: 
+        secretKeyRef:
+          name: secret1
+          key: pass
+    
+
