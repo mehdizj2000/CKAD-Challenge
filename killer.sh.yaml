@@ -291,5 +291,113 @@ spec:
         secretKeyRef:
           name: secret1
           key: pass
-    
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: cleaner
+  namespace: mercury
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      id: cleaner
+  template:
+    metadata:
+      labels:
+        id: cleaner
+    spec:
+      volumes:
+      - name: logs
+        emptyDir: {}
+      initContainers:
+      - name: init
+        image: bash:5.0.11
+        command: ['bash', '-c', 'echo init > /var/log/cleaner/cleaner.log']
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/cleaner
+      containers:
+      - name: cleaner-con
+        image: bash:5.0.11
+        args: ['bash', '-c', 'while true; do echo `date`: "remove random file" >> /var/log/cleaner/cleaner.log; sleep 1; done']
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/cleaner
+      - name: logger-con
+        image: busybox:1.31.0
+        readinessProbe:
+          exec: 
+            command: 
+            - cat 
+            - /var/log/cleaner/cleaner.log
+        command: ['tail', '-f', '/var/log/cleaner/cleaner.log']
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/cleaner
+---
+#k run -n mars temp --image=byrnedo/alpine-curl -it --rm --restart=Never -i 10.47.0.6
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-init-container
+  namespace: mars
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      id: test-init-container
+  template:
+    metadata:
+      labels:
+        id: test-init-container
+    spec:
+      volumes:
+      - name: web-content
+        emptyDir: {}
+      initContainers:
+      - name: init-con
+        image: busybox:1.31.0
+        command: ['sh', '-c', 'echo "check this out!" > /tmp/piyaz/index.html']
+        volumeMounts:
+        - name: web-content
+          mountPath: /tmp/piyaz
+      containers:
+      - image: nginx:1.17.3-alpine
+        name: nginx
+        volumeMounts:
+        - name: web-content
+          mountPath: /usr/share/nginx/html
+        ports:
+        - containerPort: 80    
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np1
+  namespace: venus
+spec:
+  podSelector:
+    matchLabels:
+      id: frontend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector: 
+        matchLabels:
+          id: api
+    ports:
+    - protocol: TCP
+      port: 2222
+  - to:
+    ports:
+    - port: 53
+      protocol: TCP
+    - port: 53
+      protocol: UDP
+
+
 
