@@ -389,9 +389,6 @@ spec:
     - podSelector: 
         matchLabels:
           id: api
-    ports:
-    - protocol: TCP
-      port: 2222
   - to:
     ports:
     - port: 53
